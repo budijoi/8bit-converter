@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8-Bit NES Converter — Mega Man Style</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #1a0a2e;
+  color: #e0d0f0;
+  font-family: 'Courier New', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(50,0,100,0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(0,50,100,0.3) 0%, transparent 50%);
+}
+.container { max-width: 860px; width: 100%; }
+header {
+  text-align: center;
+  padding: 24px 0 20px;
+  border-bottom: 3px solid #302060;
+  margin-bottom: 28px;
+}
+header h1 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 18px;
+  color: #ffcc00;
+  text-shadow: 3px 3px 0 #8b0000, 0 0 20px rgba(255,200,0,0.3);
+  letter-spacing: 2px;
+  line-height: 1.6;
+}
+header h1 span { color: #44ccff; }
+header p {
+  font-size: 13px;
+  color: #8870b0;
+  margin-top: 10px;
+}
+.drop-zone {
+  border: 3px dashed #5040a0;
+  border-radius: 8px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(30,15,60,0.6);
+  position: relative;
+  margin-bottom: 20px;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: #ffcc00;
+  background: rgba(60,30,100,0.6);
+  box-shadow: 0 0 30px rgba(255,200,0,0.1);
+}
+.drop-zone.has-file {
+  border-color: #44ccff;
+  background: rgba(20,80,120,0.2);
+  padding: 16px 20px;
+}
+.drop-zone .icon { font-size: 42px; margin-bottom: 10px; opacity: 0.7; }
+.drop-zone .text { font-size: 14px; color: #a090c0; }
+.drop-zone .sub { font-size: 12px; color: #605080; margin-top: 6px; }
+.drop-zone .file-info { font-size: 13px; color: #80d0ff; display: none; }
+.drop-zone.has-file .file-info { display: block; }
+.drop-zone.has-file .icon, .drop-zone.has-file .text, .drop-zone.has-file .sub { display: none; }
+input[type="file"] { display: none; }
+.controls {
+  background: rgba(20,10,40,0.7);
+  border: 2px solid #302060;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: flex-end;
+}
+.controls-row:last-child { margin-bottom: 0; }
+.control-group { flex: 1; min-width: 140px; }
+.control-group label {
+  display: block;
+  font-size: 11px;
+  color: #8870b0;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.control-group .value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  color: #ffcc00;
+  display: inline-block;
+  min-width: 60px;
+}
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #302060;
+  border-radius: 3px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #ffcc00;
+  border-radius: 2px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255,200,0,0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: #ffcc00;
+  border-radius: 2px;
+  cursor: pointer;
+  border: none;
+}
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.preset-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  padding: 8px 14px;
+  border: 2px solid #5040a0;
+  background: transparent;
+  color: #a090c0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.preset-btn:hover { border-color: #ffcc00; color: #ffcc00; background: rgba(255,200,0,0.1); }
+.preset-btn.active { border-color: #ffcc00; color: #ffcc00; background: rgba(255,200,0,0.15); }
+.preset-btn.megaman { border-color: #44ccff; color: #44ccff; }
+.preset-btn.megaman:hover, .preset-btn.megaman.active { border-color: #ffcc00; color: #ffcc00; background: rgba(255,200,0,0.15); }
+.mode-switch {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border: 2px solid #302060;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mode-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  color: #605080;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+}
+.mode-btn:not(:last-child) { border-right: 2px solid #302060; }
+.mode-btn.active { background: #302060; color: #ffcc00; }
+.mode-btn:hover:not(.active) { color: #a090c0; }
+
+.nes-params { display: none; }
+.nes-params.visible { display: flex; flex-wrap: wrap; gap: 16px; }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+.btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  padding: 10px 20px;
+  border: 2px solid #5040a0;
+  background: transparent;
+  color: #a090c0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.btn:hover { border-color: #ffcc00; color: #ffcc00; }
+.btn.primary {
+  background: #ffcc00;
+  color: #1a0a2e;
+  border-color: #ffcc00;
+}
+.btn.primary:hover { background: #ffe040; border-color: #ffe040; }
+.btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn.danger { border-color: #cc4444; color: #cc4444; }
+.btn.danger:hover { border-color: #ff4444; color: #ff4444; background: rgba(255,50,50,0.1); }
+.btn.success {
+  background: #44cc88;
+  color: #1a0a2e;
+  border-color: #44cc88;
+}
+.btn.success:hover { background: #55ddaa; border-color: #55ddaa; }
+.btn.success:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.canvas-wrap {
+  background: rgba(10,5,20,0.8);
+  border: 2px solid #302060;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.canvas-wrap canvas {
+  width: 100%;
+  height: 120px;
+  display: block;
+  border-radius: 4px;
+}
+.canvas-wrap .label {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  font-size: 10px;
+  color: #504080;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.player-bar .time {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #605080;
+  min-width: 90px;
+}
+.player-bar .progress-wrap { flex: 1; min-width: 100px; }
+.player-bar .progress-wrap input[type="range"] { height: 4px; }
+.status {
+  text-align: center;
+  font-size: 12px;
+  color: #605080;
+  padding: 8px;
+  min-height: 32px;
+}
+.status.processing { color: #ffcc00; }
+.status.done { color: #44cc88; }
+.status.error { color: #cc4444; }
+
+.mode-description {
+  font-size: 12px;
+  color: #605080;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(30,15,60,0.5);
+  border-radius: 4px;
+  border-left: 3px solid #302060;
+}
+.channel-strip {
+  background: rgba(20,10,40,0.5);
+  border: 2px solid #302060;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.channel-strip .ch-mute.active { background: #cc4444; color: #fff; border-color: #cc4444; }
+.channel-strip .ch-solo.active { background: #44cc88; color: #000; border-color: #44cc88; }
+.channel-strip input[type="range"] { height: 4px; }
+.channel-strip input[type="range"]::-webkit-slider-thumb { width: 14px; height: 14px; }
+#spectrumWrap canvas { height: 80px; }
+.analysis-info span { font-family: 'Courier New', monospace; }
+#autoToggleBtn.active { border-color: #44cc88; color: #44cc88; background: rgba(68,204,136,0.1); }
+
+@media (max-width: 600px) {
+  header h1 { font-size: 14px; }
+  .control-group { min-width: 100px; }
+  .preset-btn { font-size: 8px; padding: 6px 10px; }
+  .actions { flex-direction: column; }
+  .btn { width: 100%; text-align: center; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span>&#9658;</span> 8-BIT NES CONVERTER <span>&#9668;</span></h1>
+    <p>Mega Man 4 style audio — transform any track into authentic NES chiptune</p>
+  </header>
+
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">&#x1F3B5;</div>
+    <div class="text">Drop audio file here or click to browse</div>
+    <div class="sub">MP3, WAV, FLAC, OGG, M4A &bull; Max 50MB &bull; Stays on your device</div>
+    <div class="file-info" id="fileInfo"></div>
+    <input type="file" id="fileInput" accept="audio/*">
+  </div>
+
+  <div class="status" id="status">Ready &mdash; upload a file to begin</div>
+
+  <div class="canvas-wrap">
+    <div class="label">WAVEFORM</div>
+    <canvas id="waveform" height="120"></canvas>
+    <div class="player-bar">
+      <span class="time" id="timeDisplay">0:00 / 0:00</span>
+      <div class="progress-wrap">
+        <input type="range" id="seekBar" min="0" max="1" step="0.001" value="0">
+      </div>
+      <button class="btn" id="playBtn">&#9654; PLAY</button>
+    </div>
+  </div>
+
+  <div class="canvas-wrap" id="spectrumWrap" style="display:none;">
+    <div class="label">SPECTRUM</div>
+    <canvas id="spectrum" height="80"></canvas>
+    <div class="analysis-info" id="analysisInfo" style="padding:6px 4px 0;font-size:10px;color:#605080;display:flex;flex-wrap:wrap;gap:8px;"></div>
+  </div>
+
+  <div class="controls">
+    <div class="mode-switch">
+      <button class="mode-btn active" data-mode="bitcrush">BITCRUSHER</button>
+      <button class="mode-btn" data-mode="nes">NES RESYNTHESIS</button>
+    </div>
+
+    <div class="mode-description" id="modeDesc">
+      Reduces bit depth and sample rate for classic lo-fi retro crunch. Best for any audio.
+    </div>
+
+    <div id="bitcrushParams">
+      <div class="controls-row">
+        <div class="control-group">
+          <label>BIT DEPTH <span class="value" id="bitDepthVal">8</span></label>
+          <input type="range" id="bitDepth" min="1" max="16" step="1" value="8">
+        </div>
+        <div class="control-group">
+          <label>SAMPLE RATE <span class="value" id="sampleRateVal">11</span> kHz</label>
+          <input type="range" id="sampleRate" min="2" max="44" step="1" value="11">
+        </div>
+        <div class="control-group">
+          <label>MIX <span class="value" id="mixVal">100</span>%</label>
+          <input type="range" id="mix" min="0" max="100" step="1" value="100">
+        </div>
+      </div>
+      <div class="controls-row">
+        <div class="control-group" style="flex:0 0 100%">
+          <label>PRESETS</label>
+          <div class="presets">
+            <button class="preset-btn megaman active" data-preset="megaman4">MEGA MAN 4</button>
+            <button class="preset-btn" data-preset="nes">NES BASIC</button>
+            <button class="preset-btn" data-preset="gameboy">GAME BOY</button>
+            <button class="preset-btn" data-preset="c64">C64</button>
+            <button class="preset-btn" data-preset="maxcrush">MAX CRUSH</button>
+            <button class="preset-btn" data-preset="clean">CLEAN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nes-params" id="nesParams">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;width:100%;">
+        <div class="channel-strip" data-ch="0">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:9px;color:#ff8844;font-family:'Press Start 2P',monospace;">UTAMA</span>
+            <button class="ch-mute" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">M</button>
+            <button class="ch-solo" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">S</button>
+          </div>
+          <select class="ch-wave" style="width:100%;padding:4px 6px;background:#1a0a2e;color:#e0d0f0;border:2px solid #302060;border-radius:4px;font-size:11px;font-family:'Courier New',monospace;">
+            <option value="square50">Square 50%</option>
+            <option value="square25">Pulse 25%</option>
+            <option value="square12">Pulse 12.5%</option>
+            <option value="triangle">Triangle</option>
+            <option value="noise">Noise</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:10px;color:#8870b0;">VOL</span>
+            <input type="range" class="ch-vol" min="0" max="100" value="90" style="flex:1;height:4px;">
+            <span class="ch-vol-val" style="font-size:10px;color:#ffcc00;min-width:22px;text-align:right;">90</span>
+          </div>
+        </div>
+        <div class="channel-strip" data-ch="1">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:9px;color:#44ccff;font-family:'Press Start 2P',monospace;">SEKUNDER</span>
+            <button class="ch-mute" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">M</button>
+            <button class="ch-solo" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">S</button>
+          </div>
+          <select class="ch-wave" style="width:100%;padding:4px 6px;background:#1a0a2e;color:#e0d0f0;border:2px solid #302060;border-radius:4px;font-size:11px;font-family:'Courier New',monospace;">
+            <option value="square25">Pulse 25%</option>
+            <option value="square50">Square 50%</option>
+            <option value="square12">Pulse 12.5%</option>
+            <option value="triangle">Triangle</option>
+            <option value="noise">Noise</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:10px;color:#8870b0;">VOL</span>
+            <input type="range" class="ch-vol" min="0" max="100" value="70" style="flex:1;height:4px;">
+            <span class="ch-vol-val" style="font-size:10px;color:#ffcc00;min-width:22px;text-align:right;">70</span>
+          </div>
+        </div>
+        <div class="channel-strip" data-ch="2">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:9px;color:#66dd88;font-family:'Press Start 2P',monospace;">BASS</span>
+            <button class="ch-mute" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">M</button>
+            <button class="ch-solo" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">S</button>
+          </div>
+          <select class="ch-wave" style="width:100%;padding:4px 6px;background:#1a0a2e;color:#e0d0f0;border:2px solid #302060;border-radius:4px;font-size:11px;font-family:'Courier New',monospace;">
+            <option value="triangle">Triangle</option>
+            <option value="square50">Square 50%</option>
+            <option value="square25">Pulse 25%</option>
+            <option value="noise">Noise</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:10px;color:#8870b0;">VOL</span>
+            <input type="range" class="ch-vol" min="0" max="100" value="80" style="flex:1;height:4px;">
+            <span class="ch-vol-val" style="font-size:10px;color:#ffcc00;min-width:22px;text-align:right;">80</span>
+          </div>
+        </div>
+        <div class="channel-strip" data-ch="3">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:9px;color:#ff6688;font-family:'Press Start 2P',monospace;">DRUM</span>
+            <button class="ch-mute" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">M</button>
+            <button class="ch-solo" style="font-size:9px;padding:2px 6px;border:1px solid #5040a0;background:transparent;color:#a090c0;cursor:pointer;border-radius:2px;">S</button>
+          </div>
+          <select class="ch-wave" style="width:100%;padding:4px 6px;background:#1a0a2e;color:#e0d0f0;border:2px solid #302060;border-radius:4px;font-size:11px;font-family:'Courier New',monospace;">
+            <option value="noise">Noise</option>
+            <option value="square12">Pulse 12.5%</option>
+            <option value="square50">Square 50%</option>
+            <option value="triangle">Triangle</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+            <span style="font-size:10px;color:#8870b0;">VOL</span>
+            <input type="range" class="ch-vol" min="0" max="100" value="50" style="flex:1;height:4px;">
+            <span class="ch-vol-val" style="font-size:10px;color:#ffcc00;min-width:22px;text-align:right;">50</span>
+          </div>
+        </div>
+      </div>
+      <div class="controls-row" style="margin-top:10px;margin-bottom:0;">
+        <div class="control-group">
+          <label>PITCH SMOOTHING <span class="value" id="smoothVal">70</span>%</label>
+          <input type="range" id="pitchSmooth" min="0" max="100" step="1" value="70">
+        </div>
+        <div class="control-group">
+          <label>DRUM SENSITIVITY <span class="value" id="drumSenseVal">50</span>%</label>
+          <input type="range" id="drumSense" min="0" max="100" step="1" value="50">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="analyzeBtn" disabled>&#9881; ANALYZE</button>
+      <button class="btn" id="autoToggleBtn" style="font-size:9px;padding:6px 10px;border-color:#5040a0;color:#605080;">AUTO: OFF</button>
+      <button class="btn primary" id="processBtn" disabled>&#9654; PROCESS</button>
+      <button class="btn success" id="downloadBtn" disabled>&#8655; DOWNLOAD WAV</button>
+      <button class="btn danger" id="resetBtn">&#8634; RESET</button>
+    </div>
+  </div>
+
+  <footer style="text-align:center;padding:20px 0;font-size:11px;color:#403060;border-top:2px solid #201040;margin-top:10px;">
+    All processing happens in your browser &mdash; no files are uploaded &mdash; NES 2A03 emulation
+  </footer>
+</div>
+
+<script>
+// ============ WEB WORKER (inline) ============
+
+const workerCode = `
+// ---------- WORKER: audio processing engine ----------
+
+self.onmessage = function(e) {
+  const msg = e.data;
+  try {
+    switch (msg.type) {
+      case 'process': {
+        const result = doProcess(msg.mode, msg.params, msg.audio);
+        const channels = [];
+        for (let i = 0; i < result.channels.length; i++) {
+          channels.push(result.channels[i].buffer);
+        }
+        self.postMessage({ id: msg.id, type: 'result', channels, sampleRate: result.sampleRate, displayData: result.displayData.buffer }, channels);
+        break;
+      }
+      case 'analyze': {
+        const result = doAnalyze(msg.audio);
+        self.postMessage({ id: msg.id, type: 'analysis', ...result });
+        break;
+      }
+    }
+  } catch(err) {
+    self.postMessage({ id: msg.id, type: 'error', message: err.message });
+  }
+};
+
+function doProcess(mode, params, audio) {
+  const chData = [];
+  for (let i = 0; i < audio.channels.length; i++) {
+    chData.push(new Float32Array(audio.channels[i]));
+  }
+  const origSR = audio.sampleRate;
+  const numCh = chData.length;
+
+  if (mode === 'bitcrush') {
+    return processBitcrush(chData, origSR, numCh, params);
+  } else {
+    return processNES(chData, origSR, params);
+  }
+}
+
+function processBitcrush(chData, origSR, numCh, params) {
+  const targetSR = params.sampleRate;
+  const bitDepth = params.bitDepth;
+  const mix = params.mix;
+  const step = Math.max(1, Math.round(origSR / targetSR));
+  const newLen = Math.ceil(chData[0].length / step);
+  const quantLevels = Math.pow(2, bitDepth);
+  const quantStep = 2 / quantLevels;
+
+  const out = [];
+  for (let c = 0; c < Math.min(numCh, 2); c++) {
+    const ch = new Float32Array(newLen);
+    const src = chData[c % chData.length];
+    for (let i = 0; i < newLen; i++) {
+      let s = 0;
+      let srcStart = i * step;
+      let srcEnd = Math.min(srcStart + step, src.length);
+      for (let j = Math.floor(srcStart); j < srcEnd; j++) s += src[j];
+      s = s / (srcEnd - Math.floor(srcStart));
+      let quantized = Math.round((s + 1) / quantStep) * quantStep - 1;
+      quantized = Math.max(-1, Math.min(1, quantized));
+      ch[i] = quantized;
+    }
+    out.push(ch);
+  }
+  while (out.length < 2) out.push(new Float32Array(out[0]));
+
+  // Mix with original
+  if (mix < 1) {
+    for (let c = 0; c < 2; c++) {
+      const src = chData[c % chData.length];
+      for (let i = 0; i < newLen; i++) {
+        const origIdx = Math.floor(i * step);
+        const origSample = origIdx < src.length ? src[origIdx] : 0;
+        out[c][i] = out[c][i] * mix + origSample * (1 - mix);
+      }
+    }
+  }
+
+  const displayData = new Float32Array(newLen);
+  for (let i = 0; i < newLen; i++) displayData[i] = (out[0][i] + out[1][i]) * 0.5;
+
+  return { channels: out, sampleRate: targetSR, displayData };
+}
+
+function processNES(chData, origSR, params) {
+  const targetSR = 22050;
+  const frameSize = 2048;
+  const hopSize = 512;
+  const src = chData[0];
+  const numFrames = Math.floor((src.length - frameSize) / hopSize) + 1;
+  const hasSolo = params.channels.some(c => c.solo);
+  const smooth = params.pitchSmooth;
+
+  const frames = [];
+  let totalSamples = 0;
+
+  for (let f = 0; f < numFrames; f++) {
+    const start = f * hopSize;
+    const frame = src.slice(start, start + frameSize);
+    const bands = splitBands(frame, origSR);
+
+    const bassPitch = detectPitch(bands[0], origSR);
+    const bassEnergy = Math.min(1, Math.sqrt(bands[0].reduce((s,v) => s+v*v, 0) / bands[0].length) * 4);
+    const sekPitch = detectPitch(bands[1], origSR);
+    const sekEnergy = Math.min(1, Math.sqrt(bands[1].reduce((s,v) => s+v*v, 0) / bands[1].length) * 4);
+    const utamaPitch = detectPitch(bands[2], origSR);
+    const utamaEnergy = Math.min(1, Math.sqrt(bands[2].reduce((s,v) => s+v*v, 0) / bands[2].length) * 4);
+    const drumEnergy = detectTransient(src, start, frameSize, origSR, params.drumSense);
+
+    const prev = f > 0 ? frames[f - 1] : null;
+    frames.push({
+      utama: { freq: utamaPitch > 0 ? utamaPitch : (prev ? prev.utama.freq : 440), energy: utamaEnergy },
+      sekunder: { freq: sekPitch > 0 ? sekPitch : (prev ? prev.sekunder.freq : 330), energy: sekEnergy },
+      bass: { freq: bassPitch > 0 ? bassPitch : (prev ? prev.bass.freq : 110), energy: bassEnergy },
+      drum: { energy: drumEnergy },
+      length: hopSize
+    });
+
+    if (prev) {
+      const f2 = frames[f];
+      f2.utama.freq = prev.utama.freq * smooth + f2.utama.freq * (1 - smooth);
+      f2.sekunder.freq = prev.sekunder.freq * smooth + f2.sekunder.freq * (1 - smooth);
+      f2.bass.freq = prev.bass.freq * smooth + f2.bass.freq * (1 - smooth);
+    }
+    totalSamples += hopSize;
+  }
+
+  const outL = new Float32Array(totalSamples);
+  const outR = new Float32Array(totalSamples);
+  let noiseState = 1;
+  let phases = [0, 0, 0, 0];
+  let writeIdx = 0;
+
+  for (const frame of frames) {
+    const len = frame.length;
+    const chOut = [new Float32Array(len), new Float32Array(len), new Float32Array(len), new Float32Array(len)];
+    const chParams = [
+      { freq: Math.max(40, Math.min(5000, frame.utama.freq)), energy: frame.utama.energy, chIdx: 0 },
+      { freq: Math.max(40, Math.min(4000, frame.sekunder.freq)), energy: frame.sekunder.energy, chIdx: 1 },
+      { freq: Math.max(30, Math.min(1000, frame.bass.freq)), energy: frame.bass.energy, chIdx: 2 },
+      { freq: 220, energy: frame.drum.energy, chIdx: 3 }
+    ];
+
+    for (let c = 0; c < 4; c++) {
+      const p = chParams[c];
+      const chCfg = params.channels[p.chIdx];
+      const active = hasSolo ? chCfg.solo : !chCfg.mute;
+      if (!active) continue;
+      const freq = p.freq;
+      const amp = Math.min(0.9, p.energy * chCfg.vol);
+      const period = targetSR / freq;
+      const out = chOut[c];
+
+      for (let i = 0; i < len; i++) {
+        phases[c] += 1 / period;
+        if (phases[c] > 1) phases[c] -= 1;
+        out[i] = generateWave(chCfg.wave, phases[c], noiseState) * amp;
+      }
+      if (c === 3 || chCfg.wave === 'noise') {
+        for (let i = 0; i < len; i++)
+          noiseState = ((noiseState << 1) | (((noiseState >> 7) ^ (noiseState >> 5)) & 1)) & 0x7fff;
+      }
+    }
+
+    for (let i = 0; i < len; i++) {
+      let sumL = 0, sumR = 0;
+      for (let c = 0; c < 4; c++) {
+        const chCfg = params.channels[c];
+        const active = hasSolo ? chCfg.solo : !chCfg.mute;
+        if (!active) continue;
+        const pan = c === 0 ? -0.3 : c === 1 ? 0.3 : c === 2 ? 0 : (Math.random() * 0.4 - 0.2);
+        const s = chOut[c][i];
+        sumL += s * (0.7 - pan * 0.3);
+        sumR += s * (0.7 + pan * 0.3);
+      }
+      outL[writeIdx + i] = Math.max(-1, Math.min(1, sumL));
+      outR[writeIdx + i] = Math.max(-1, Math.min(1, sumR));
+    }
+    writeIdx += len;
+  }
+
+  const displayData = new Float32Array(totalSamples);
+  for (let i = 0; i < totalSamples; i++) displayData[i] = (outL[i] + outR[i]) * 0.5;
+
+  return { channels: [outL, outR], sampleRate: targetSR, displayData };
+}
+
+function splitBands(frame, sr) {
+  const len = frame.length;
+  const low = new Float32Array(len);
+  const mid = new Float32Array(len);
+  const high = new Float32Array(len);
+  const lowCutoff = Math.max(1, Math.round(sr / 300));
+  const midCutoff = Math.max(1, Math.round(sr / 1000));
+  let sum = 0;
+  for (let i = 0; i < len; i++) { sum += frame[i]; if (i >= lowCutoff) sum -= frame[i - lowCutoff]; low[i] = sum / Math.min(i + 1, lowCutoff); }
+  const hp = new Float32Array(len);
+  for (let i = 0; i < len; i++) hp[i] = frame[i] - low[i];
+  sum = 0;
+  for (let i = 0; i < len; i++) { sum += hp[i]; if (i >= midCutoff) sum -= hp[i - midCutoff]; mid[i] = sum / Math.min(i + 1, midCutoff); }
+  for (let i = 0; i < len; i++) high[i] = hp[i] - mid[i];
+  return [low, mid, high];
+}
+
+function detectTransient(data, start, frameSize, sr, drumSense) {
+  if (start < 2) return 0;
+  const lookback = Math.min(start, Math.round(sr * 0.05));
+  const frame = data.slice(start, start + frameSize);
+  const currentEnergy = frame.reduce((s, v) => s + Math.abs(v), 0) / frame.length;
+  let prevEnergy = 0;
+  const prevStart = Math.max(0, start - lookback);
+  for (let i = prevStart; i < start; i++) prevEnergy += Math.abs(data[i]);
+  prevEnergy /= lookback;
+  const ratio = prevEnergy > 0.0001 ? currentEnergy / prevEnergy : 1;
+  const sensitivity = 0.5 + drumSense * 2;
+  return Math.max(0, Math.min(1, (ratio - 1.5) * sensitivity * 0.5));
+}
+
+function detectPitch(frame, sampleRate) {
+  const minLag = Math.round(sampleRate / 2000);
+  const maxLag = Math.round(sampleRate / 40);
+  const len = frame.length;
+  if (len < maxLag) return -1;
+  const rms = Math.sqrt(frame.reduce((s, v) => s + v * v, 0) / len);
+  if (rms < 0.005) return -1;
+  let bestLag = -1, bestCorr = 0;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let corr = 0;
+    for (let i = 0; i < len - lag; i++) corr += frame[i] * frame[i + lag];
+    corr /= (len - lag);
+    if (corr > bestCorr) { bestCorr = corr; bestLag = lag; }
+  }
+  if (bestLag > minLag && bestLag < maxLag) {
+    const prev = autocorr(frame, bestLag - 1, len);
+    const next = autocorr(frame, bestLag + 1, len);
+    if (prev > 0 && next > 0 && bestCorr > 0) {
+      const denom = 2 * bestCorr - prev - next;
+      if (denom !== 0) bestLag += (prev - next) / denom;
+    }
+  }
+  if (bestCorr / (rms * rms + 1e-10) < 0.3) return -1;
+  return sampleRate / bestLag;
+}
+
+function autocorr(frame, lag, len) {
+  let corr = 0;
+  for (let i = 0; i < len - lag; i++) corr += frame[i] * frame[i + lag];
+  return corr / (len - lag);
+}
+
+function generateWave(type, phase, noiseState) {
+  switch (type) {
+    case 'square50': return phase < 0.5 ? 1 : -1;
+    case 'square25': return phase < 0.25 ? 1 : -1;
+    case 'square12': return phase < 0.125 ? 1 : -1;
+    case 'triangle': return 2 * Math.abs(2 * phase - 1) - 1;
+    default: return phase < 0.5 ? 1 : -1;
+  }
+}
+
+function doAnalyze(audio) {
+  const chData = new Float32Array(audio.channels[0]);
+  const sr = audio.sampleRate;
+  const len = chData.length;
+  const dur = len / sr;
+  const fftSize = 2048;
+  const hop = 1024;
+  const numFrames = Math.max(1, Math.floor((len - fftSize) / hop));
+  const numBins = 40;
+  const spectrum = new Float32Array(numBins);
+  const binFreqs = [];
+  const nyquist = sr / 2;
+  for (let i = 0; i < numBins; i++) binFreqs[i] = Math.pow(nyquist, i / (numBins - 1));
+
+  // Energy accumulators per band
+  let bassEnergy = 0, midEnergy = 0, highEnergy = 0;
+  let transientCount = 0, prevEnergy = 0, frameCount = 0;
+  let minRms = Infinity, maxRms = 0;
+
+  // Instrument-specific detectors
+  let vocalFormantEnergy = 0;
+  let guitarStrumEnergy = 0;
+  let subBassEnergy = 0;
+  let transientSharpness = 0;
+  let sustainedHarmonicEnergy = 0;
+  let spectralCentroidSum = 0;
+  let spectralSpreadSum = 0;
+  let silenceFrames = 0;
+  let prevMags = null;
+
+  for (let f = 0; f < numFrames; f++) {
+    const start = f * hop;
+    const frame = chData.slice(start, start + fftSize);
+    if (frame.length < fftSize) continue;
+
+    const windowed = new Float32Array(fftSize);
+    for (let i = 0; i < fftSize; i++)
+      windowed[i] = frame[i] * (0.54 - 0.46 * Math.cos(2 * Math.PI * i / (fftSize - 1)));
+
+    const real = new Float32Array(fftSize);
+    const imag = new Float32Array(fftSize);
+    real.set(windowed);
+    fft(real, imag);
+
+    const mags = new Float32Array(fftSize / 2);
+    for (let i = 0; i < fftSize / 2; i++) mags[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+
+    for (let b = 0; b < numBins; b++) {
+      const binMaxFreq = binFreqs[b];
+      const binMinFreq = b > 0 ? binFreqs[b - 1] : 0;
+      for (let i = 0; i < fftSize / 2; i++) {
+        const freq = (i / fftSize) * sr;
+        if (freq >= binMinFreq && freq < binMaxFreq) spectrum[b] += mags[i];
+      }
+    }
+
+    // Frequency band energy
+    let fBass = 0, fMid = 0, fHigh = 0;
+    let fSubBass = 0, fFormant = 0, fGuitar = 0;
+    let centroidNum = 0, centroidDen = 0, spreadNum = 0;
+
+    for (let i = 0; i < fftSize / 2; i++) {
+      const freq = (i / fftSize) * sr;
+      const mag = mags[i];
+
+      // Standard bands
+      if (freq < 300) fBass += mag;
+      else if (freq < 1000) fMid += mag;
+      else fHigh += mag;
+
+      // Sub-bass (40-150Hz) — bass instrument
+      if (freq >= 40 && freq < 150) fSubBass += mag;
+
+      // Vocal formants (200-800Hz, peak at ~500Hz and ~1500Hz)
+      if ((freq >= 200 && freq < 400) || (freq >= 600 && freq < 900) || (freq >= 1200 && freq < 1800)) {
+        fFormant += mag;
+      }
+
+      // Guitar range (80-6000Hz, with emphasis on 500-2000Hz)
+      if (freq >= 500 && freq < 2000) fGuitar += mag;
+
+      // Spectral centroid
+      centroidNum += freq * mag;
+      centroidDen += mag;
+
+      // RMS for dynamic range
+      spreadNum += freq * freq * mag;
+    }
+
+    bassEnergy += fBass; midEnergy += fMid; highEnergy += fHigh;
+    subBassEnergy += fSubBass;
+    vocalFormantEnergy += fFormant;
+    guitarStrumEnergy += fGuitar;
+
+    // Spectral centroid and spread
+    if (centroidDen > 0) {
+      const centroid = centroidNum / centroidDen;
+      spectralCentroidSum += centroid;
+      spectralSpreadSum += Math.sqrt(spreadNum / centroidDen - centroid * centroid);
+    }
+
+    // RMS for dynamic range & sustained harmonic detection
+    const rms = Math.sqrt(frame.reduce((s, v) => s + v * v, 0) / frame.length);
+    if (rms < minRms) minRms = rms;
+    if (rms > maxRms) maxRms = rms;
+    if (rms < 0.005) silenceFrames++;
+
+    // Detect sustained harmonics (guitar/vocal — compare with previous frame)
+    if (prevMags && rms > 0.005) {
+      let harmonicDiff = 0, matchCount = 0;
+      for (let i = 0; i < fftSize / 2; i++) {
+        if (mags[i] > 0.01 && prevMags[i] > 0.01) {
+          harmonicDiff += Math.abs(mags[i] - prevMags[i]);
+          matchCount++;
+        }
+      }
+      if (matchCount > 20) {
+        const stability = 1 - Math.min(1, harmonicDiff / (matchCount * 0.5));
+        sustainedHarmonicEnergy += stability;
+      }
+    }
+
+    // Transient detection
+    const curEnergy = frame.reduce((s, v) => s + Math.abs(v), 0) / frame.length;
+    if (f > 0 && curEnergy > prevEnergy * 1.5) {
+      transientCount++;
+      // Measure transient sharpness (how much high frequency content in the onset)
+      if (curEnergy > 0) {
+        let highMag = 0;
+        for (let i = Math.round(fftSize / 4); i < fftSize / 2; i++) {
+          highMag += mags[i] || 0;
+        }
+        transientSharpness += highMag / curEnergy;
+      }
+    }
+    prevEnergy = curEnergy;
+    prevMags = mags;
+    frameCount++;
+  }
+
+  // Normalize spectrum
+  const specMax = Math.max(...spectrum);
+  for (let b = 0; b < numBins; b++) spectrum[b] = specMax > 0 ? spectrum[b] / specMax : 0;
+
+  // Ratios
+  const total = bassEnergy + midEnergy + highEnergy || 1;
+  const bassRatio = bassEnergy / total;
+  const midRatio = midEnergy / total;
+  const highRatio = highEnergy / total;
+  const dynamicRange = maxRms > 0 ? 20 * Math.log10(maxRms / Math.max(0.0001, minRms)) : 0;
+  const estimatedBpm = Math.max(60, Math.min(200, Math.round(transientCount / dur * 60)));
+
+  // --- Instrument Detection ---
+
+  // BASS: strong sub-bass relative to overall bass
+  const subBassRatio = subBassEnergy / (bassEnergy || 1);
+  const hasBass = subBassRatio > 0.3 && bassRatio > 0.15;
+
+  // DRUM: high transient count + broad spectrum + sharp attacks
+  const transientsPerSec = transientCount / dur;
+  const drumScore = Math.min(1, (transientsPerSec / 3) * (transientSharpness / (transientCount || 1)));
+  const hasDrum = drumScore > 0.25 && transientsPerSec > 1.0;
+
+  // VOCAL: formant energy in mid-range + wide dynamic range + spectral centroid variation
+  const formantRatio = vocalFormantEnergy / (midEnergy || 1);
+  const avgCentroid = spectralCentroidSum / (frameCount || 1);
+  const centroidVariation = spectralSpreadSum / (frameCount || 1);
+  const silenceRatio = silenceFrames / (frameCount || 1);
+  const vocalScore = formantRatio > 0.3 && dynamicRange > 15 && centroidVariation > 500
+    ? Math.min(1, (formantRatio * 0.4 + dynamicRange / 60 * 0.3 + centroidVariation / 2000 * 0.3))
+    : 0;
+  const hasVocal = vocalScore > 0.25;
+
+  // GUITAR: sustained harmonics + mid-high energy + medium spectral centroid
+  const harmonicRatio = sustainedHarmonicEnergy / (frameCount || 1);
+  const guitarEnergyRatio = guitarStrumEnergy / (midEnergy + highEnergy || 1);
+  const guitarScore = harmonicRatio > 0.2 && guitarEnergyRatio > 0.2 && avgCentroid > 800 && avgCentroid < 3000
+    ? Math.min(1, (harmonicRatio * 0.4 + guitarEnergyRatio * 0.4 + (1 - Math.abs(avgCentroid - 1500) / 1500) * 0.2))
+    : 0;
+  const hasGuitar = guitarScore > 0.2;
+
+  // Build instrument labels
+  const instLabels = [];
+  if (hasVocal) instLabels.push('VOCAL');
+  else if (midRatio > 0.3) instLabels.push('MELODY');
+  if (hasGuitar) instLabels.push('GUITAR');
+  else if (highRatio > 0.25 && !hasGuitar) instLabels.push('HARMONY');
+  if (hasBass) instLabels.push('BASS');
+  if (hasDrum) instLabels.push('DRUM');
+
+  const isPercussive = hasDrum || (bassRatio + highRatio) > 0.7;
+  const isMelodic = hasVocal || hasGuitar || midRatio > 0.4;
+  const isBassHeavy = hasBass && bassRatio > 0.4;
+
+  return {
+    spectrum: Array.from(spectrum),
+    binFreqs,
+    bassRatio, midRatio, highRatio,
+    dynamicRange, estimatedBpm,
+    isPercussive, isMelodic, isBassHeavy,
+    hasVocal, hasGuitar, hasBass, hasDrum,
+    instLabels,
+    dur
+  };
+}
+
+function fft(real, imag) {
+  const n = real.length;
+  if (n <= 1) return;
+  const half = n >> 1;
+  const evenReal = new Float32Array(half);
+  const evenImag = new Float32Array(half);
+  const oddReal = new Float32Array(half);
+  const oddImag = new Float32Array(half);
+  for (let i = 0; i < half; i++) { evenReal[i] = real[i * 2]; evenImag[i] = imag[i * 2]; oddReal[i] = real[i * 2 + 1]; oddImag[i] = imag[i * 2 + 1]; }
+  fft(evenReal, evenImag);
+  fft(oddReal, oddImag);
+  for (let k = 0; k < half; k++) {
+    const t = -2 * Math.PI * k / n;
+    const cos = Math.cos(t), sin = Math.sin(t);
+    const re = oddReal[k] * cos - oddImag[k] * sin;
+    const im = oddReal[k] * sin + oddImag[k] * cos;
+    real[k] = evenReal[k] + re; imag[k] = evenImag[k] + im;
+    real[k + half] = evenReal[k] - re; imag[k + half] = evenImag[k] - im;
+  }
+}
+`;
+
+// Create blob worker
+const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+const worker = new Worker(URL.createObjectURL(workerBlob));
+let msgId = 0;
+const pending = {};
+
+worker.onmessage = function(e) {
+  const msg = e.data;
+  const resolve = pending[msg.id];
+  if (!resolve) return;
+  delete pending[msg.id];
+  resolve(msg);
+};
+
+worker.onerror = function(err) {
+  console.error('Worker error:', err);
+};
+
+function sendToWorker(msg) {
+  return new Promise((resolve, reject) => {
+    const id = ++msgId;
+    msg.id = id;
+    pending[id] = (result) => {
+      if (result.type === 'error') reject(new Error(result.message));
+      else resolve(result);
+    };
+    worker.postMessage(msg);
+  });
+}
+
+// ============ MAIN THREAD ============
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let origBuffer = null;
+let processedBuffer = null;
+let processedDisplayData = null;
+let sourceNode = null;
+let isPlaying = false;
+let startTime = 0;
+let pauseOffset = 0;
+
+const channels = [
+  { mute: false, solo: false, vol: 0.9, wave: 'square50' },
+  { mute: false, solo: false, vol: 0.7, wave: 'square25' },
+  { mute: false, solo: false, vol: 0.8, wave: 'triangle' },
+  { mute: false, solo: false, vol: 0.5, wave: 'noise' }
+];
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const statusEl = document.getElementById('status');
+const canvas = document.getElementById('waveform');
+const specCanvas = document.getElementById('spectrum');
+const specCtx = specCanvas.getContext('2d');
+const analysisInfo = document.getElementById('analysisInfo');
+const spectrumWrap = document.getElementById('spectrumWrap');
+const ctx = canvas.getContext('2d');
+const timeDisplay = document.getElementById('timeDisplay');
+const seekBar = document.getElementById('seekBar');
+const playBtn = document.getElementById('playBtn');
+const processBtn = document.getElementById('processBtn');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const autoToggleBtn = document.getElementById('autoToggleBtn');
+let autoAnalyze = false;
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
+const bitDepth = document.getElementById('bitDepth');
+const sampleRate = document.getElementById('sampleRate');
+const mix = document.getElementById('mix');
+const bitDepthVal = document.getElementById('bitDepthVal');
+const sampleRateVal = document.getElementById('sampleRateVal');
+const mixVal = document.getElementById('mixVal');
+const pitchSmooth = document.getElementById('pitchSmooth');
+const drumSense = document.getElementById('drumSense');
+const smoothVal = document.getElementById('smoothVal');
+const drumSenseVal = document.getElementById('drumSenseVal');
+const modeBtns = document.querySelectorAll('.mode-btn');
+const bitcrushParams = document.getElementById('bitcrushParams');
+const nesParams = document.getElementById('nesParams');
+const modeDesc = document.getElementById('modeDesc');
+const presetBtns = document.querySelectorAll('.preset-btn');
+const chMutes = document.querySelectorAll('.ch-mute');
+const chSolos = document.querySelectorAll('.ch-solo');
+const chWaves = document.querySelectorAll('.ch-wave');
+const chVols = document.querySelectorAll('.ch-vol');
+const chVolVals = document.querySelectorAll('.ch-vol-val');
+
+let fileLoaded = false;
+let waveData = null;
+
+function fmtTime(s) { const m = Math.floor(s / 60), sec = Math.floor(s % 60); return m + ':' + sec.toString().padStart(2, '0'); }
+
+function downsampleForDisplay(data, targetLen) {
+  if (!data || !data.length) return null;
+  const step = Math.max(1, Math.floor(data.length / targetLen));
+  const result = new Float32Array(targetLen);
+  for (let i = 0; i < targetLen; i++) {
+    let sum = 0, count = 0;
+    for (let j = i * step; j < (i + 1) * step && j < data.length; j++) { sum += data[j]; count++; }
+    result[i] = count ? sum / count : 0;
+  }
+  return result;
+}
+
+function resizeCanvas() {
+  canvas.width = canvas.parentElement.getBoundingClientRect().width - 24;
+}
+
+function drawWaveform(data, color) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!data) return;
+  const w = canvas.width, h = canvas.height, mid = h / 2;
+  ctx.strokeStyle = color || '#44ccff'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = i / data.length * w, y = mid + data[i] * (mid - 8);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.lineTo(w, mid); ctx.lineTo(0, mid); ctx.closePath();
+  ctx.fillStyle = (color || '#44ccff').replace(')', ',0.1)').replace('rgb', 'rgba');
+  ctx.fill();
+}
+
+function drawOverlay(orig, processed) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!orig && !processed) return;
+  const w = canvas.width, h = canvas.height, mid = h / 2;
+  if (orig) {
+    ctx.strokeStyle = 'rgba(100,80,160,0.5)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < orig.length; i++) { const x = i / orig.length * w, y = mid + orig[i] * (mid - 8); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  if (processed) {
+    ctx.strokeStyle = '#44ccff'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i < processed.length; i++) { const x = i / processed.length * w, y = mid + processed[i] * (mid - 8); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+}
+
+function updateUI() {
+  bitDepthVal.textContent = bitDepth.value;
+  sampleRateVal.textContent = sampleRate.value;
+  mixVal.textContent = mix.value;
+  smoothVal.textContent = pitchSmooth.value;
+  drumSenseVal.textContent = drumSense.value;
+}
+
+function updateChannelUI() {
+  chVols.forEach((el, i) => { chVolVals[i].textContent = el.value; channels[i].vol = parseInt(el.value) / 100; channels[i].wave = chWaves[i].value; });
+}
+
+function updateTime() {
+  if (!isPlaying) return;
+  const dur = getDuration(), cur = getCurrentTime();
+  timeDisplay.textContent = fmtTime(cur) + ' / ' + fmtTime(dur);
+  if (dur > 0) seekBar.value = cur / dur;
+  window._animFrame = requestAnimationFrame(updateTime);
+}
+
+function resizeSpecCanvas() {
+  specCanvas.width = specCanvas.parentElement.getBoundingClientRect().width - 24;
+}
+
+function drawSpectrum(spectrum) {
+  if (!spectrum || !spectrum.length) return;
+  resizeSpecCanvas();
+  const w = specCanvas.width, h = specCanvas.height, pad = 4;
+  const barW = Math.max(3, (w - pad * 2) / spectrum.length);
+  specCtx.clearRect(0, 0, w, h);
+  for (let i = 0; i < spectrum.length; i++) {
+    const val = Math.max(0, Math.min(1, spectrum[i]));
+    const barH = val * (h - pad * 2), x = pad + i * barW, y = h - pad - barH;
+    const t = i / spectrum.length;
+    specCtx.fillStyle = 'rgb(' + Math.round(100 + t * 155) + ',' + Math.round(180 - t * 120) + ',' + Math.round(255 - t * 180) + ')';
+    specCtx.fillRect(x, y, Math.max(1, barW - 1), barH);
+  }
+}
+
+function showAnalysisInfo(info) {
+  const insts = info.instLabels && info.instLabels.length
+    ? info.instLabels.join(' + ')
+    : (info.isPercussive ? 'PERCUSSIVE' : info.isMelodic ? 'MELODIC' : 'BALANCED');
+  analysisInfo.innerHTML =
+    '<span style="color:#8870b0;">BPM:</span><span style="color:#ffcc00;">' + info.estimatedBpm + '</span> ' +
+    '<span style="color:#8870b0;">INST:</span><span style="color:#44ccff;">' + insts + '</span> ' +
+    '<span style="color:#8870b0;">DR:</span><span style="color:#66dd88;">' + info.dynamicRange.toFixed(1) + 'dB</span> ' +
+    '<span style="color:#8870b0;">BASS:</span><span style="color:#ff8844;">' + (info.bassRatio * 100).toFixed(0) + '%</span> ' +
+    '<span style="color:#8870b0;">MID:</span><span style="color:#44ccff;">' + (info.midRatio * 100).toFixed(0) + '%</span> ' +
+    '<span style="color:#8870b0;">HIGH:</span><span style="color:#ff6688;">' + (info.highRatio * 100).toFixed(0) + '%</span>';
+}
+
+function autoConfigureChannels(info) {
+  const { hasVocal, hasGuitar, hasBass, hasDrum, bassRatio, midRatio, highRatio, isPercussive } = info;
+
+  // Map detected instruments to NES channels:
+  // Ch 0 (UTAMA)  → Vocal or Melody lead
+  // Ch 1 (SEKUNDER) → Guitar or Harmony
+  // Ch 2 (BASS)    → Bass
+  // Ch 3 (DRUM)    → Drum/Percussion
+
+  let volMap, waveMap, muteMap, labels;
+
+  if (hasVocal || hasGuitar || hasBass || hasDrum) {
+    volMap = [
+      hasVocal ? 90 : hasGuitar ? 70 : Math.round(50 + highRatio * 60),
+      hasGuitar ? 80 : hasVocal ? 60 : Math.round(40 + midRatio * 60),
+      hasBass ? 85 : Math.round(40 + bassRatio * 80),
+      hasDrum ? 65 : isPercussive ? 45 : 25
+    ];
+    waveMap = ['square50', 'square25', 'triangle', 'noise'];
+    muteMap = [!hasVocal && !hasGuitar && highRatio < 0.15, !hasGuitar && !hasVocal && midRatio < 0.15, !hasBass && bassRatio < 0.15, !hasDrum && !isPercussive];
+  } else {
+    volMap = [
+      Math.min(100, Math.round(60 + highRatio * 80)),
+      Math.min(100, Math.round(40 + midRatio * 80)),
+      Math.min(100, Math.round(50 + bassRatio * 100)),
+      Math.min(100, isPercussive ? 60 : 30)
+    ];
+    waveMap = ['square50', 'square25', 'triangle', 'noise'];
+    muteMap = [highRatio < 0.1, midRatio < 0.1, bassRatio < 0.1, !isPercussive && highRatio > 0.6];
+  }
+
+  for (let i = 0; i < 4; i++) { channels[i].vol = volMap[i] / 100; channels[i].wave = waveMap[i]; channels[i].mute = muteMap[i]; channels[i].solo = false; }
+  chVols.forEach((el, i) => { el.value = volMap[i]; chVolVals[i].textContent = volMap[i]; });
+  chWaves.forEach((el, i) => { for (let o of el.options) o.selected = o.value === waveMap[i]; });
+  chMutes.forEach((btn, i) => { muteMap[i] ? btn.classList.add('active') : btn.classList.remove('active'); });
+  chSolos.forEach(btn => btn.classList.remove('active'));
+}
+
+let currentMode = 'bitcrush';
+function getDuration() { return processedBuffer ? processedBuffer.duration : 0; }
+function getCurrentTime() { return isPlaying ? audioCtx.currentTime - startTime : pauseOffset; }
+
+function stopPlayback() {
+  if (sourceNode) { try { sourceNode.stop(); } catch(e) {} try { sourceNode.disconnect(); } catch(e) {} }
+  sourceNode = null; isPlaying = false; pauseOffset = 0;
+  if (window._animFrame) { cancelAnimationFrame(window._animFrame); window._animFrame = null; }
+  timeDisplay.textContent = '0:00 / ' + fmtTime(getDuration());
+  seekBar.value = 0;
+}
+
+function play() {
+  if (!processedBuffer || isPlaying) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = processedBuffer;
+  sourceNode.connect(audioCtx.destination);
+  sourceNode.start(0, pauseOffset);
+  isPlaying = true;
+  startTime = audioCtx.currentTime - pauseOffset;
+}
+
+function pause() {
+  if (sourceNode && isPlaying) { pauseOffset = audioCtx.currentTime - startTime; sourceNode.stop(); sourceNode.disconnect(); isPlaying = false; }
+}
+
+function seek(time) {
+  pauseOffset = Math.max(0, Math.min(time, processedBuffer ? processedBuffer.duration : 0));
+  if (isPlaying) { try { sourceNode.stop(); } catch(e) {} try { sourceNode.disconnect(); } catch(e) {} sourceNode = null; isPlaying = false; play(); }
+}
+
+function exportWAV() {
+  if (!processedBuffer) return null;
+  const numChannels = processedBuffer.numberOfChannels, sr = processedBuffer.sampleRate, len = processedBuffer.length;
+  const bitsPerSample = 16, blockAlign = numChannels * bitsPerSample / 8, byteRate = sr * blockAlign, dataSize = len * blockAlign;
+  const chData = [];
+  for (let ch = 0; ch < numChannels; ch++) chData.push(processedBuffer.getChannelData(ch));
+  const header = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(header);
+  const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE');
+  writeStr(12, 'fmt '); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, numChannels, true);
+  view.setUint32(24, sr, true); view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true); view.setUint16(34, bitsPerSample, true);
+  writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      let s = Math.max(-1, Math.min(1, chData[ch][i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      off += 2;
+    }
+  }
+  return new Blob([header], { type: 'audio/wav' });
+}
+
+// Drop zone handlers
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+async function handleFile(file) {
+  try {
+    statusEl.textContent = 'Loading file...'; statusEl.className = 'status processing';
+    const arrayBuffer = await file.arrayBuffer();
+    origBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    processedBuffer = null; processedDisplayData = null; stopPlayback();
+    fileLoaded = true;
+    dropZone.classList.add('has-file');
+    fileInfo.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+    processBtn.disabled = false; analyzeBtn.disabled = false;
+    statusEl.textContent = 'File loaded. Click ANALYZE for auto-config, or PROCESS to convert.'; statusEl.className = 'status';
+    resizeCanvas();
+    waveData = downsampleForDisplay(origBuffer.getChannelData(0), 800);
+    drawWaveform(waveData, '#8870b0');
+    if (autoAnalyze) setTimeout(() => doAnalyzeAction(), 100);
+  } catch (err) { statusEl.textContent = 'Error: ' + err.message; statusEl.className = 'status error'; }
+}
+
+// Mode switching
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    if (currentMode === 'bitcrush') { bitcrushParams.style.display = 'block'; nesParams.className = 'nes-params'; modeDesc.textContent = 'Reduces bit depth and sample rate for classic lo-fi retro crunch.'; }
+    else { bitcrushParams.style.display = 'none'; nesParams.className = 'nes-params visible'; modeDesc.textContent = '4-channel NES resynthesis: Utama (Square), Sekunder (Pulse), Bass (Triangle), Drum (Noise).'; }
+    processedDisplayData = null;
+    drawOverlay(waveData, null);
+  });
+});
+
+// Channel strip controls
+chMutes.forEach((btn, i) => { btn.addEventListener('click', () => { btn.classList.toggle('active'); channels[i].mute = btn.classList.contains('active'); }); });
+chSolos.forEach((btn, i) => { btn.addEventListener('click', () => { btn.classList.toggle('active'); channels[i].solo = btn.classList.contains('active'); }); });
+chWaves.forEach((el, i) => { el.addEventListener('change', () => { channels[i].wave = el.value; }); });
+chVols.forEach((el, i) => { el.addEventListener('input', () => { chVolVals[i].textContent = el.value; channels[i].vol = parseInt(el.value) / 100; }); });
+
+// Presets
+presetBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    presetBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    switch (btn.dataset.preset) {
+      case 'megaman4': bitDepth.value = 4; sampleRate.value = 11; mix.value = 100; break;
+      case 'nes': bitDepth.value = 4; sampleRate.value = 11; mix.value = 80; break;
+      case 'gameboy': bitDepth.value = 4; sampleRate.value = 8; mix.value = 90; break;
+      case 'c64': bitDepth.value = 8; sampleRate.value = 8; mix.value = 70; break;
+      case 'maxcrush': bitDepth.value = 2; sampleRate.value = 4; mix.value = 100; break;
+      case 'clean': bitDepth.value = 16; sampleRate.value = 44; mix.value = 30; break;
+    }
+    updateUI();
+  });
+});
+
+// Range inputs
+[bitDepth, sampleRate, mix, pitchSmooth, drumSense].forEach(el => { el.addEventListener('input', updateUI); });
+
+async function doAnalyzeAction() {
+  if (!fileLoaded) return;
+  analyzeBtn.disabled = true;
+  statusEl.textContent = 'Analyzing audio...'; statusEl.className = 'status processing';
+  try {
+    const ch = origBuffer.getChannelData(0);
+    const buf = ch.buffer.slice(ch.byteOffset, ch.byteOffset + ch.byteLength);
+    const result = await sendToWorker({ type: 'analyze', audio: { channels: [buf], sampleRate: origBuffer.sampleRate } });
+    spectrumWrap.style.display = 'block';
+    drawSpectrum(result.spectrum);
+    showAnalysisInfo(result);
+    autoConfigureChannels(result);
+    statusEl.textContent = 'Analysis complete. Channels auto-configured.'; statusEl.className = 'status done';
+  } catch (err) { statusEl.textContent = 'Analysis error: ' + err.message; statusEl.className = 'status error'; }
+  finally { analyzeBtn.disabled = false; }
+}
+
+// Toggle auto-analyze
+autoToggleBtn.addEventListener('click', () => {
+  autoAnalyze = !autoAnalyze;
+  autoToggleBtn.textContent = 'AUTO: ' + (autoAnalyze ? 'ON' : 'OFF');
+  autoToggleBtn.classList.toggle('active');
+});
+
+// Analyze (manual)
+analyzeBtn.addEventListener('click', doAnalyzeAction);
+
+// Process (runs in worker - no UI blocking)
+processBtn.addEventListener('click', async () => {
+  if (!fileLoaded) return;
+  stopPlayback();
+  playBtn.textContent = '\u25B6 PLAY';
+  statusEl.textContent = 'Processing in background...'; statusEl.className = 'status processing';
+  processBtn.disabled = true; analyzeBtn.disabled = true; downloadBtn.disabled = true;
+  updateChannelUI();
+
+  try {
+    const ch = origBuffer.getChannelData(0);
+    const ch2 = origBuffer.numberOfChannels > 1 ? origBuffer.getChannelData(1) : origBuffer.getChannelData(0);
+    const params = {
+      bitDepth: parseInt(bitDepth.value),
+      sampleRate: parseInt(sampleRate.value) * 1000,
+      mix: parseInt(mix.value) / 100,
+      pitchSmooth: parseInt(pitchSmooth.value) / 100,
+      drumSense: parseInt(drumSense.value) / 100,
+      channels: channels.map(c => ({ mute: c.mute, solo: c.solo, vol: c.vol, wave: c.wave }))
+    };
+    const audio = {
+      channels: [ch.buffer.slice(ch.byteOffset, ch.byteOffset + ch.byteLength), ch2.buffer.slice(ch2.byteOffset, ch2.byteOffset + ch2.byteLength)],
+      sampleRate: origBuffer.sampleRate
+    };
+    const result = await sendToWorker({ type: 'process', mode: currentMode, params, audio });
+
+    // Reconstruct AudioBuffer from worker result
+    const outCh1 = new Float32Array(result.channels[0]);
+    const outCh2 = result.channels.length > 1 ? new Float32Array(result.channels[1]) : new Float32Array(outCh1);
+    processedBuffer = audioCtx.createBuffer(2, outCh1.length, result.sampleRate);
+    processedBuffer.getChannelData(0).set(outCh1);
+    processedBuffer.getChannelData(1).set(outCh2);
+
+    processedDisplayData = downsampleForDisplay(new Float32Array(result.displayData), 800);
+    resizeCanvas();
+    drawOverlay(waveData, processedDisplayData);
+    downloadBtn.disabled = false; playBtn.disabled = false;
+    statusEl.textContent = 'Done! Preview or download your 8-bit track.'; statusEl.className = 'status done';
+  } catch (err) { statusEl.textContent = 'Processing error: ' + err.message; statusEl.className = 'status error'; }
+  finally { processBtn.disabled = false; analyzeBtn.disabled = false; }
+});
+
+// Playback
+playBtn.addEventListener('click', () => {
+  if (!processedBuffer) return;
+  if (isPlaying) { pause(); playBtn.textContent = '\u25B6 PLAY'; }
+  else { play(); playBtn.textContent = '\u23F8 PAUSE'; updateTime(); }
+});
+seekBar.addEventListener('input', () => {
+  const t = parseFloat(seekBar.value) * getDuration();
+  seek(t);
+  timeDisplay.textContent = fmtTime(t) + ' / ' + fmtTime(getDuration());
+});
+
+// Download
+downloadBtn.addEventListener('click', () => {
+  const blob = exportWAV();
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = '8bit-nes-converted.wav';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  statusEl.textContent = 'Downloaded!'; statusEl.className = 'status done';
+});
+
+// Reset
+resetBtn.addEventListener('click', () => {
+  stopPlayback(); playBtn.textContent = '\u25B6 PLAY';
+  processBtn.disabled = true; analyzeBtn.disabled = true; downloadBtn.disabled = true;
+  fileLoaded = false;
+  origBuffer = null; processedBuffer = null; processedDisplayData = null;
+  dropZone.classList.remove('has-file'); fileInput.value = ''; fileInfo.textContent = '';
+  waveData = null; spectrumWrap.style.display = 'none';
+  chMutes.forEach(b => b.classList.remove('active')); chSolos.forEach(b => b.classList.remove('active'));
+  channels.forEach(ch => { ch.mute = false; ch.solo = false; });
+  resizeCanvas(); drawWaveform(null);
+  statusEl.textContent = 'Ready \u2014 upload a file to begin'; statusEl.className = 'status';
+});
+
+window.addEventListener('resize', () => { resizeCanvas(); if (waveData || processedDisplayData) drawOverlay(waveData, processedDisplayData); resizeSpecCanvas(); });
+
+resizeCanvas();
+updateUI();
+</script>
+</body>
+</html>
