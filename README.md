@@ -1,6 +1,10 @@
-# 8-Bit NES Converter — Mega Man 4 Style
+# 8-Bit NES Converter
 
 Transform any audio track into authentic NES chiptune, directly in your browser. No upload, no signup — all processing stays on your device.
+
+<img width="908" height="592" alt="Screenshot 2026-06-24 120110" src="https://github.com/user-attachments/assets/d7aaafaa-5a96-4da6-9a75-960a2061afd4" />
+
+<img width="875" height="515" alt="Screenshot 2026-06-24 120130" src="https://github.com/user-attachments/assets/d387c6a6-33c2-4f41-a558-5a87eb600f21" />
 
 ## Features
 
